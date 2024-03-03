@@ -19,6 +19,7 @@ import androidx.navigation.ui.AppBarConfiguration
 import androidx.navigation.ui.navigateUp
 import androidx.navigation.ui.setupActionBarWithNavController
 import com.example.zigbeeconnection.databinding.ActivityMainBinding
+import com.example.zigbeeconnection.zigbee.Request
 import com.google.android.material.snackbar.Snackbar
 import com.hoho.android.usbserial.driver.UsbSerialDriver
 import com.hoho.android.usbserial.driver.UsbSerialPort
@@ -45,15 +46,12 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        setSupportActionBar(binding.toolbar)
+//        val navController = findNavController(R.id.nav_host_fragment_content_main)
+//        appBarConfiguration = AppBarConfiguration(navController.graph)
+//        setupActionBarWithNavController(navController, appBarConfiguration)
 
-        val navController = findNavController(R.id.nav_host_fragment_content_main)
-        appBarConfiguration = AppBarConfiguration(navController.graph)
-        setupActionBarWithNavController(navController, appBarConfiguration)
-
-        binding.fab.setOnClickListener { view ->
-            Snackbar.make(view, readFromDevice(), Snackbar.LENGTH_LONG)
-                .setAction("Action", null).show()
+        binding.getConnection.setOnClickListener { view ->
+            binding.responseMessage.setText(readFromDevice())
         }
     }
 
@@ -108,19 +106,29 @@ class MainActivity : AppCompatActivity() {
         }
 
         if (isConnected) {
-            Log.i("Set Params", port.toString())
+            var strResponse = ""
+            val response = ByteArray(32)
+            val data = byteArrayOf(0x04, 0x21, 0x09, 0x0087.toByte(), 0x00, 0x01, 0x02)
+            var fcs = 0;
 
-            val response = ByteArray(1024)
+            for (item in data) {
+                fcs = fcs xor item.toInt()
+            }
+
+            port.write(byteArrayOf(
+                0xFE.toByte(),
+                *data,
+                fcs.toByte(),
+            ), 1000)
             port.read(response, 1000);
-            Log.e("Response", HexDump.dumpHexString(response))
 
-            port.write("0xf1".toByteArray(), 1000)
+            response.forEach {
+                strResponse += String.format("%02X", it) + " "
+                Log.e("Byte" ,String.format("%02X", it))
+            }
 
-            val response2 = ByteArray(8)
-            port.read(response2, 1000)
-            Log.e("Response", HexDump.dumpHexString(response2))
-
-            return HexDump.dumpHexString(response)
+            Log.e("AfterWrite", strResponse)
+            return strResponse
         }
 
         return "Permissions was requested. Please - retry"
